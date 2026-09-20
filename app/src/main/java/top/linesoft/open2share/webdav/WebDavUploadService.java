@@ -59,6 +59,27 @@ public class WebDavUploadService extends Service {
     private PowerManager.WakeLock wakeLock;
     private long lastProgressUpdate;
 
+    /** Posts an error notification; used by the share activity when the upload cannot even start. */
+    public static void notifyFailure(Context context, String detail) {
+        createChannels(context);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_RESULT)
+                .setContentTitle(context.getString(R.string.webdav_upload_failed))
+                .setContentText(detail)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(detail))
+                .setSmallIcon(android.R.drawable.stat_notify_error)
+                .setAutoCancel(true)
+                .setContentIntent(PendingIntent.getActivity(
+                        context,
+                        0,
+                        new Intent(context, WebDavSettingsActivity.class),
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        try {
+            NotificationManagerCompat.from(context).notify(4799, builder.build());
+        } catch (SecurityException e) {
+            Log.w(TAG, "Missing notification permission", e);
+        }
+    }
+
     public static Intent newIntent(Context context, String requestId, String folder) {
         Intent intent = new Intent(context, WebDavUploadService.class);
         intent.putExtra(EXTRA_REQUEST_ID, requestId);
@@ -71,7 +92,7 @@ public class WebDavUploadService extends Service {
         super.onCreate();
         executor = Executors.newSingleThreadExecutor();
         notificationManager = NotificationManagerCompat.from(this);
-        createChannels();
+        createChannels(this);
     }
 
     @Nullable
@@ -174,10 +195,10 @@ public class WebDavUploadService extends Service {
         File cacheFile = null;
         try {
             long length = item.size;
-            if (length <= 0) {
-                // The size is unknown, so the file is buffered first: that way the PUT request can
-                // send a Content-Length instead of using chunked encoding, which not every server
-                // accepts, and the body stays re-readable.
+            if (length <= 0 || !item.isReReadable()) {
+                // The size is unknown, or the provider only handed us a one-shot stream: buffer the
+                // file first, so that the PUT request can send a Content-Length instead of using
+                // chunked encoding (which not every server accepts) and the body stays re-readable.
                 cacheFile = copyToCache(item);
                 length = cacheFile.length();
             }
@@ -314,13 +335,13 @@ public class WebDavUploadService extends Service {
         }
     }
 
-    private void createChannels() {
+    private static void createChannels(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager manager = getSystemService(NotificationManager.class);
+            NotificationManager manager = context.getSystemService(NotificationManager.class);
             manager.createNotificationChannel(new NotificationChannel(CHANNEL_PROGRESS,
-                    getString(R.string.webdav_channel_progress), NotificationManager.IMPORTANCE_LOW));
+                    context.getString(R.string.webdav_channel_progress), NotificationManager.IMPORTANCE_LOW));
             manager.createNotificationChannel(new NotificationChannel(CHANNEL_RESULT,
-                    getString(R.string.webdav_channel_result), NotificationManager.IMPORTANCE_DEFAULT));
+                    context.getString(R.string.webdav_channel_result), NotificationManager.IMPORTANCE_DEFAULT));
         }
     }
 

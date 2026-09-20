@@ -1,10 +1,12 @@
 package top.linesoft.open2share;
 
+import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -28,6 +30,8 @@ import top.linesoft.open2share.webdav.WebDavUploadService;
  */
 public class ShareReceiveActivity extends AppCompatActivity {
 
+    private static final String TAG = "WebDavUpload";
+
     private List<Uri> uris;
     private String text;
     private String subject;
@@ -42,8 +46,13 @@ public class ShareReceiveActivity extends AppCompatActivity {
         text = intent.getStringExtra(Intent.EXTRA_TEXT);
         subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
         mimeType = intent.getType();
+        Log.i(TAG, "Received " + intent.getAction() + " type=" + mimeType
+                + " uris=" + uris.size() + " text=" + (text == null ? 0 : text.length()));
 
         if (uris.isEmpty() && TextUtils.isEmpty(text)) {
+            Log.w(TAG, "Nothing to upload in " + intent);
+            WebDavUploadService.notifyFailure(this, getString(R.string.webdav_nothing_to_upload)
+                    + "\n" + intent.getAction() + " " + mimeType);
             Toast.makeText(this, R.string.webdav_nothing_to_upload, Toast.LENGTH_LONG).show();
             finish();
             return;
@@ -55,8 +64,10 @@ public class ShareReceiveActivity extends AppCompatActivity {
             return;
         }
 
+        // When the app is opened directly ("open with"), always let the user pick the folder.
+        boolean openedDirectly = Intent.ACTION_VIEW.equals(intent.getAction());
         List<String> folders = config.folderList();
-        if (config.askFolder && folders.size() > 1) {
+        if (openedDirectly || (config.askFolder && folders.size() > 1)) {
             showFolderPicker(folders);
         } else {
             startUpload(folders.get(0));
@@ -116,8 +127,7 @@ public class ShareReceiveActivity extends AppCompatActivity {
             for (UploadItem item : items) {
                 item.close();
             }
-            Toast.makeText(this, getString(R.string.webdav_upload_failed) + "\n" + e.getMessage(),
-                    Toast.LENGTH_LONG).show();
+            reportFailure("Could not read the shared file", e);
             finish();
             return;
         }
@@ -128,10 +138,18 @@ public class ShareReceiveActivity extends AppCompatActivity {
             String target = TextUtils.isEmpty(folder) ? "/" : folder;
             Toast.makeText(this, getString(R.string.webdav_upload_started, target), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            Toast.makeText(this, getString(R.string.webdav_upload_failed) + "\n" + e.getMessage(),
-                    Toast.LENGTH_LONG).show();
+            reportFailure("Could not start the upload", e);
         }
         finish();
+    }
+
+    /** A toast is too short-lived for an error, so the reason is also logged and shown as a notification. */
+    private void reportFailure(String context, Exception e) {
+        Log.e(TAG, context, e);
+        String detail = context + ": " + e.getClass().getSimpleName()
+                + (e.getMessage() != null ? " - " + e.getMessage() : "");
+        WebDavUploadService.notifyFailure(this, detail);
+        Toast.makeText(this, getString(R.string.webdav_upload_failed), Toast.LENGTH_LONG).show();
     }
 
     private List<Uri> extractUris(Intent intent) {
@@ -150,27 +168,58 @@ public class ShareReceiveActivity extends AppCompatActivity {
             Uri uri = getParcelableExtra(intent);
             if (uri != null) {
                 result.add(uri);
-            } else if (intent.getData() != null) {
-                // Also supports being launched with a VIEW intent ("open with").
-                result.add(intent.getData());
             }
+        }
+        if (result.isEmpty()) {
+            // Some senders (and the system chooser when it forwards an intent) leave EXTRA_STREAM
+            // unreadable; the clip data carries the same URIs and is what the read permission was
+            // granted for, so it is the more reliable source.
+            ClipData clipData = intent.getClipData();
+            if (clipData != null) {
+                for (int i = 0; i < clipData.getItemCount(); i++) {
+                    Uri uri = clipData.getItemAt(i).getUri();
+                    if (uri != null && !result.contains(uri)) {
+                        result.add(uri);
+                    }
+                }
+            }
+        }
+        if (result.isEmpty() && intent.getData() != null) {
+            // Launched with a VIEW intent ("open with").
+            result.add(intent.getData());
         }
         return result;
     }
 
     @SuppressWarnings("deprecation")
     private static Uri getParcelableExtra(Intent intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Uri uri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+                if (uri != null) {
+                    return uri;
+                }
+            }
+            return intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        } catch (Exception e) {
+            Log.w(TAG, "Could not read EXTRA_STREAM", e);
+            return null;
         }
-        return intent.getParcelableExtra(Intent.EXTRA_STREAM);
     }
 
     @SuppressWarnings("deprecation")
     private static ArrayList<Uri> getParcelableArrayListExtra(Intent intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri.class);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ArrayList<Uri> uris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri.class);
+                if (uris != null) {
+                    return uris;
+                }
+            }
+            return intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+        } catch (Exception e) {
+            Log.w(TAG, "Could not read EXTRA_STREAM", e);
+            return null;
         }
-        return intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
     }
 }

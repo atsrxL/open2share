@@ -66,4 +66,8 @@
     <string name="webdav_channel_progress">Upload progress</string>
     <string name="webdav_channel_result">Upload result</string>
     <string name="share_target_label">Upload to WebDAV</string>
+
+    <!-- Entry names shown in the "open with" / share chooser -->
+    <string name="label_open2share" translatable="false">open2share</string>
+    <string name="label_share2nas" translatable="false">share2nas</string>
 </resources>

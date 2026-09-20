@@ -38,14 +38,19 @@ public class UploadItem {
     private final ParcelFileDescriptor descriptor;
     @Nullable
     private final byte[] content;
+    /** Only set when the provider could not give us a file descriptor; can be read exactly once. */
+    @Nullable
+    private InputStream oneShotStream;
 
     private UploadItem(String fileName, String mimeType, long size,
-                       @Nullable ParcelFileDescriptor descriptor, @Nullable byte[] content) {
+                       @Nullable ParcelFileDescriptor descriptor, @Nullable byte[] content,
+                       @Nullable InputStream oneShotStream) {
         this.fileName = fileName;
         this.mimeType = mimeType;
         this.size = size;
         this.descriptor = descriptor;
         this.content = content;
+        this.oneShotStream = oneShotStream;
     }
 
     /** Opens {@code uri} and collects the metadata needed for the upload. */
@@ -60,23 +65,36 @@ public class UploadItem {
         if (TextUtils.isEmpty(mimeType) || "*/*".equals(mimeType)) {
             mimeType = guessMimeType(fileName);
         }
-        ParcelFileDescriptor descriptor = resolver.openFileDescriptor(uri, "r");
-        if (descriptor == null) {
+        long size = querySize(resolver, uri);
+
+        ParcelFileDescriptor descriptor = null;
+        try {
+            descriptor = resolver.openFileDescriptor(uri, "r");
+        } catch (Exception e) {
+            // Some providers (WeChat's file provider for videos, for instance) serve their content
+            // through a pipe or an asset file and do not implement openFile at all.
+            Log.w(TAG, "openFileDescriptor failed for " + uri + ", falling back to openInputStream", e);
+        }
+        if (descriptor != null) {
+            if (size <= 0) {
+                long statSize = descriptor.getStatSize();
+                size = statSize > 0 ? statSize : -1;
+            }
+            return new UploadItem(fileName, mimeType, size, descriptor, null, null);
+        }
+
+        InputStream stream = resolver.openInputStream(uri);
+        if (stream == null) {
             throw new FileNotFoundException(uri.toString());
         }
-        long size = querySize(resolver, uri);
-        if (size <= 0) {
-            long statSize = descriptor.getStatSize();
-            size = statSize > 0 ? statSize : -1;
-        }
-        return new UploadItem(fileName, mimeType, size, descriptor, null);
+        return new UploadItem(fileName, mimeType, size, null, null, stream);
     }
 
     /** A text snippet that is uploaded as a UTF-8 text file. */
     public static UploadItem fromText(String text, @Nullable String subject) {
         byte[] bytes = (text == null ? "" : text).getBytes(StandardCharsets.UTF_8);
         return new UploadItem(buildTextFileName(subject), "text/plain; charset=utf-8",
-                bytes.length, null, bytes);
+                bytes.length, null, bytes, null);
     }
 
     /**
@@ -88,7 +106,12 @@ public class UploadItem {
             return new java.io.ByteArrayInputStream(content);
         }
         if (descriptor == null) {
-            throw new IOException("File is no longer available");
+            InputStream stream = oneShotStream;
+            oneShotStream = null;
+            if (stream == null) {
+                throw new IOException("File is no longer available");
+            }
+            return stream;
         }
         ParcelFileDescriptor duplicate = descriptor.dup();
         try {
@@ -100,6 +123,11 @@ public class UploadItem {
         return new ParcelFileDescriptor.AutoCloseInputStream(duplicate);
     }
 
+    /** Whether {@link #openStream()} can be called more than once. */
+    public boolean isReReadable() {
+        return content != null || descriptor != null;
+    }
+
     public void close() {
         if (descriptor != null) {
             try {
@@ -107,6 +135,14 @@ public class UploadItem {
             } catch (IOException e) {
                 Log.w(TAG, "Could not close the file", e);
             }
+        }
+        if (oneShotStream != null) {
+            try {
+                oneShotStream.close();
+            } catch (IOException e) {
+                Log.w(TAG, "Could not close the stream", e);
+            }
+            oneShotStream = null;
         }
     }
 
