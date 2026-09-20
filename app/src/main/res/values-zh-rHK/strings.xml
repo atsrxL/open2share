@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">open2share</string>
+    <string name="app_name">share2znas</string>
     <string name="convert_text">轉換為分享文件</string>
     <string name="guide">使用說明</string>
     <string name="hide">隱藏桌面圖標</string>
     <string name="about">關於</string>
-    <string name="about_title">關於 open2share</string>
+    <string name="about_title">關於 share2znas</string>
     <string name="help">幫助</string>
     <string name="settings">設置</string>
     <string name="share_title">分享文件</string>
@@ -20,4 +20,51 @@
     <string name="open_file_uri">相容fileUri類型</string>
     <string name="open_file_uri_msg">android7以上，因為安全問題不提倡使用fileUri，因此，打開此選項將同意帶來的安全風險</string>
     <string name="no_use_file_uri_msg">未允許打開fileUri相容</string>
+
+    <!-- WebDAV upload -->
+    <string name="webdav_title">WebDAV 上傳</string>
+    <string name="webdav_settings_summary">設定 NAS 的 WebDAV 伺服器，分享檔案即可直接上傳</string>
+    <string name="webdav_enable">啟用 WebDAV 上傳</string>
+    <string name="webdav_server">伺服器</string>
+    <string name="webdav_scheme">通訊協定</string>
+    <string name="webdav_host">伺服器位址（網域或 IP）</string>
+    <string name="webdav_host_hint">例如 nas.example.com，也可直接貼上完整網址</string>
+    <string name="webdav_port">連接埠</string>
+    <string name="webdav_port_hint">留空則使用 443（https）/ 80（http）</string>
+    <string name="webdav_base_path">基礎路徑（選填）</string>
+    <string name="webdav_base_path_hint">例如 dav，即伺服器上的 WebDAV 根目錄</string>
+    <string name="webdav_credentials">認證資訊</string>
+    <string name="webdav_username">使用者名稱</string>
+    <string name="webdav_password">密碼</string>
+    <string name="webdav_upload_options">上傳選項</string>
+    <string name="webdav_folders">上傳目錄（每行一個）</string>
+    <string name="webdav_folders_hint">第一行為預設目錄，例如 zssd/SHARED/tmp</string>
+    <string name="webdav_ask_folder">上傳前選擇目錄</string>
+    <string name="webdav_create_dirs">自動建立不存在的目錄</string>
+    <string name="webdav_overwrite">同名檔案直接覆蓋</string>
+    <string name="webdav_trust_all_certs">信任所有憑證（自簽）</string>
+    <string name="webdav_trust_all_certs_warning">關閉憑證驗證後，連線可能被竊聽或竄改。請僅在使用自簽憑證的區域網路 NAS 上啟用。是否繼續？</string>
+    <string name="webdav_test">測試連線</string>
+    <string name="webdav_save">儲存</string>
+    <string name="webdav_saved">已儲存</string>
+    <string name="webdav_testing">正在測試…</string>
+    <string name="webdav_test_success">連線成功</string>
+    <string name="webdav_test_failed">連線失敗</string>
+    <string name="webdav_current_target">目前目標：%1$s</string>
+    <string name="webdav_host_missing">請填寫伺服器位址</string>
+    <string name="webdav_host_invalid">伺服器位址無效</string>
+    <string name="webdav_not_configured">尚未設定 WebDAV 伺服器，請先完成設定。</string>
+    <string name="webdav_open_settings">前往設定</string>
+    <string name="webdav_choose_folder">上傳到</string>
+    <string name="webdav_upload">上傳</string>
+    <string name="webdav_upload_started">開始上傳到 %1$s</string>
+    <string name="webdav_uploading">正在上傳到 WebDAV</string>
+    <string name="webdav_upload_succeeded">上傳完成</string>
+    <string name="webdav_upload_succeeded_multiple">已上傳 %1$d 個檔案</string>
+    <string name="webdav_uploaded_to">目標目錄：%1$s</string>
+    <string name="webdav_upload_failed">上傳失敗</string>
+    <string name="webdav_nothing_to_upload">沒有可上傳的內容</string>
+    <string name="webdav_channel_progress">上傳進度</string>
+    <string name="webdav_channel_result">上傳結果</string>
+    <string name="share_target_label">上傳到 NAS (WebDAV)</string>
 </resources>

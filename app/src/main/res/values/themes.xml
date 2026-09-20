@@ -44,4 +44,14 @@
         <item name="colorPrimaryInverse">@color/md_theme_light_inversePrimary</item>
         <item name="preferenceTheme">@style/M3PreferenceStyle</item>
     </style>
+
+    <!-- Invisible host for the share receiver; Material3 so that its dialogs are styled. -->
+    <style name="Theme.Open2Share.Material3.Transparent" parent="Theme.Open2Share.Material3">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
 </resources>

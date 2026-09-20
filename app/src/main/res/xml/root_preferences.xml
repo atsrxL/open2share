@@ -11,6 +11,13 @@
         <!--            android:summary="本软件的使用说明"-->
 
     </PreferenceCategory>
+    <PreferenceCategory android:title="@string/webdav_title">
+        <Preference
+            android:icon="@drawable/ic_baseline_cloud_upload_24"
+            android:key="webdav_settings"
+            android:summary="@string/webdav_settings_summary"
+            android:title="@string/webdav_title" />
+    </PreferenceCategory>
     <PreferenceCategory android:title="@string/settings">
         <SwitchPreferenceCompat
             android:defaultValue="false"

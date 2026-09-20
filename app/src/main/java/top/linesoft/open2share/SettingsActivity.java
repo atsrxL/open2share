@@ -34,6 +34,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     public static class SettingsFragment extends BaseSettingsFragment implements Preference.OnPreferenceClickListener, Preference.OnPreferenceChangeListener {
         Preference guidePreference;
+        Preference webDavPreference;
         SwitchPreferenceCompat hidePreference;
         SwitchPreferenceCompat fileUriPreference;
         Preference aboutPreference;
@@ -43,6 +44,9 @@ public class SettingsActivity extends AppCompatActivity {
             if (preference == guidePreference) {
                 Intent intent = new Intent(getActivity(), GuideActivity.class);
                 startActivity(intent);
+                return true;
+            } else if (preference == webDavPreference) {
+                startActivity(new Intent(getActivity(), WebDavSettingsActivity.class));
                 return true;
             } else if (preference == aboutPreference) {
                 new MaterialAlertDialogBuilder(requireContext())
@@ -61,6 +65,10 @@ public class SettingsActivity extends AppCompatActivity {
             guidePreference = findPreference("guide");
             if (guidePreference != null) {
                 guidePreference.setOnPreferenceClickListener(this);
+            }
+            webDavPreference = findPreference("webdav_settings");
+            if (webDavPreference != null) {
+                webDavPreference.setOnPreferenceClickListener(this);
             }
             hidePreference = findPreference("hide_icon");
             if (hidePreference != null) {
