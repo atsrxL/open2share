@@ -36,6 +36,9 @@ public class ShareReceiveActivity extends AppCompatActivity {
     private String text;
     private String subject;
     private String mimeType;
+    /** Opened right away in onCreate; handed over to the service, or closed again on cancel. */
+    private List<UploadItem> items;
+    private boolean handedOver;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -64,6 +67,13 @@ public class ShareReceiveActivity extends AppCompatActivity {
             return;
         }
 
+        // The files are opened before the folder picker is shown, not after: apps like WeChat hand
+        // out a temporary file that they delete as soon as their own screen goes away. Once the file
+        // descriptor is open the content stays readable even if that file is removed meanwhile.
+        if (!openItems()) {
+            return;
+        }
+
         // When the app is opened directly ("open with"), always let the user pick the folder.
         boolean openedDirectly = Intent.ACTION_VIEW.equals(intent.getAction());
         List<String> folders = config.folderList();
@@ -72,6 +82,42 @@ public class ShareReceiveActivity extends AppCompatActivity {
         } else {
             startUpload(folders.get(0));
         }
+    }
+
+    /** Opens every shared file; returns false (and finishes) when that is not possible. */
+    private boolean openItems() {
+        items = new ArrayList<>();
+        try {
+            for (Uri uri : uris) {
+                items.add(UploadItem.fromUri(this, uri, mimeType));
+            }
+            if (items.isEmpty() && !TextUtils.isEmpty(text)) {
+                items.add(UploadItem.fromText(text, subject));
+            }
+            return true;
+        } catch (Exception e) {
+            closeItems();
+            reportFailure("Could not read the shared file", e);
+            finish();
+            return false;
+        }
+    }
+
+    private void closeItems() {
+        if (items != null) {
+            for (UploadItem item : items) {
+                item.close();
+            }
+            items = null;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (!handedOver) {
+            closeItems();
+        }
+        super.onDestroy();
     }
 
     private void showSetupDialog() {
@@ -107,33 +153,25 @@ public class ShareReceiveActivity extends AppCompatActivity {
                             .apply();
                     startUpload(folder);
                 })
-                .setNegativeButton(R.string.no, (dialog, which) -> finish())
-                .setOnCancelListener(dialog -> finish())
+                .setNegativeButton(R.string.no, (dialog, which) -> {
+                    closeItems();
+                    finish();
+                })
+                .setOnCancelListener(dialog -> {
+                    closeItems();
+                    finish();
+                })
                 .show();
     }
 
     private void startUpload(String folder) {
-        List<UploadItem> items = new ArrayList<>();
-        try {
-            for (Uri uri : uris) {
-                // Opened here, while this activity still holds the read permission that the sharing
-                // app granted us: the grant is gone once the activity finishes.
-                items.add(UploadItem.fromUri(this, uri, mimeType));
-            }
-            if (items.isEmpty() && !TextUtils.isEmpty(text)) {
-                items.add(UploadItem.fromText(text, subject));
-            }
-        } catch (Exception e) {
-            for (UploadItem item : items) {
-                item.close();
-            }
-            reportFailure("Could not read the shared file", e);
+        if (items == null || items.isEmpty()) {
             finish();
             return;
         }
-
         try {
             String requestId = UploadRequestStore.put(items);
+            handedOver = true;
             ContextCompat.startForegroundService(this, WebDavUploadService.newIntent(this, requestId, folder));
             String target = TextUtils.isEmpty(folder) ? "/" : folder;
             Toast.makeText(this, getString(R.string.webdav_upload_started, target), Toast.LENGTH_SHORT).show();
